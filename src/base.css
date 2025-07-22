@@ -1,0 +1,110 @@
+*, *::before, * after {
+  box-sizing: border-box;
+}
+
+html {
+  --foreground: #dcdfe4;
+  --background: #282c34;
+  --background-light: #383a42;
+  --black: #282c34;
+  --red: #e06c75;
+  --green: #98c379;
+  --yellow: #e5c07b;
+  --blue: #61afef;
+  --magenta: #c678dd;
+  --cyan: #56b6c2;
+  --white: #dcdfe4;
+
+  --p0: 1rem;
+  --p-1: 0.8rem;
+  --p-2: 0.64rem;
+  --p-3: 0.5rem;
+  --p-4: 0.4rem;
+  --p-5: 0.325rem;
+  --p-6: 0.25rem;
+  --p1: 1.25rem;
+  --p2: 1.5rem;
+  --p3: 2rem;
+  --p4: 2.5rem;
+  --p5: 3rem;
+  --p6: 3.75rem;
+
+  --line-width: 70ch;
+
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: "DroidSansMono NF", monospace;
+}
+
+body {
+  margin: 0;
+}
+
+html {
+  display: grid;
+  height: 100%;
+}
+
+body {
+  display: grid;
+}
+
+input[type="text"] {
+  padding: var(--p-2);
+  background-color: var(--background-light);
+  border: 0;
+  color: inherit;
+  font: inherit;
+}
+
+input[type="text"]:focus {
+  outline: 2px solid var(--blue);
+}
+
+h1 {
+  text-align: center;
+}
+
+button,
+input[type="submit"] {
+  appearance: none;
+  font: inherit;
+  background: none;
+  color: inherit;
+  border: 0;
+  cursor: pointer;
+}
+
+a {
+  text-decoration: none;
+  color: var(--blue);
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+nav {
+  display: flex;
+  gap: var(--p0);
+  justify-content: center;
+}
+
+nav a {
+  color: var(--foreground);
+}
+
+nav .active {
+  text-decoration: underline;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
