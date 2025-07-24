@@ -34,35 +34,83 @@ const ctx = canvas.getContext("2d")
 
 const H = 60
 
-function LeafNode(x: number = 0, y: number = 0): LeafNode {
-    return {position: vec2.fromValues(x, y)}
+function LeafNode(): LeafNode {
+    return {position: vec2.create()}
 }
 
-function TreeNode(color: "black" | "red", value: number, x: number, y: number, label: string = "") : TreeNode {
+function TreeNode(color: "black" | "red", value: numberr, label: string = ""): TreeNode {
     return {
-        left: LeafNode(x-H, y+H),
-        right: LeafNode(x+H, y+H),
+        left: LeafNode(),
+        right: LeafNode(),
         color,
         value,
-        position: vec2.fromValues(x, y),
+        position: vec2.create(),
         label,
     }
 }
 
-const root = TreeNode("black", 20, 0, 0, "0");
-const node1 = TreeNode("red", 30, H, H, "1");
+function isTreeNode(node: LeafNode): node is TreeNode {
+    return "color" in node;
+}
+
+const root = TreeNode("black", 20, "0");
+const node1 = TreeNode("red", 30, "1");
 root.right = node1
-const node2 = TreeNode("black", 25, 0.75 * H, 2 * H, "2");
+const node2 = TreeNode("black", 25, "2");
 node1.left = node2
-const node3 = TreeNode("black", 15, -H, H, "3");
+const node3 = TreeNode("black", 15,"3");
 root.left = node3
-node3.right.position[0] = -0.75 * H
+const node4 = TreeNode("red", 18, "4");
+node3.right = node4
+const node5 = TreeNode("red", 27, "5");
+node2.right = node5
+const node6 = TreeNode("black", 35, "6");
+node1.right = node6
+const node7 = TreeNode("black", 20, "7");
+node2.left = node7
+
 {
-    const pos = node3.right.position
-    const node4 = TreeNode("red", 18, pos[0], pos[1], "4");
-    node3.right = node4
-    node4.right.position[0] = -0.5 * H
-    node2.left.position[0] = 0.5 * H
+    interface Context {
+        levels?: (LeafNode | null)[][]
+        depth?: number,
+        i?: number,
+    }
+    function createLevels(node: LeafNode, {levels = [], depth = 0, i = 0}: Context = {}): (LeafNode | null)[][] {
+        levels[depth] ??= Array(2**depth).fill(null)
+        levels[depth][i] = node
+        if (isTreeNode(node)) {
+            createLevels(node.left, {levels, depth: depth+1, i: 2*i})
+            createLevels(node.right, {levels, depth: depth+1, i: 2*i+1})
+        }
+        return levels
+    }
+    const levels = createLevels(root)
+
+    levels.forEach((level, depth) => {
+        const height = levels.length - depth - 1;
+        const scaleBase = 1.25;
+        const scale = scaleBase**height;
+        let totalSpace = 0
+        for (const node of level) {
+            const space = scale * getSpace(node)
+            totalSpace += space
+        }
+        let x = -0.5 * totalSpace
+        for (const node of level) {
+            const space = scale * getSpace(node)
+            if (node) {
+                node.position[0] = x + 0.5 * space
+                node.position[1] = H * depth
+            }
+            x += space;
+        }
+    })
+
+    function getSpace(node: LeafNode | null): number {
+        if (node == null) return 0.5 * H
+        if (isTreeNode(node)) return 1.5 * H;
+    return 1 *H;
+    }
 }
 
 const TAU = Math.PI * 2;
@@ -86,10 +134,6 @@ function render() {
     ctx.translate(canvas.width / 2, canvas.height / 2 - 0.5 * treeHeight)
     drawSubtree(ctx, root)
 
-
-    function isTreeNode(node: LeafNode) : node is TreeNode {
-        return "color" in node;
-    }
 
     function drawSubtree(ctx: CanvasRenderingContext2D, node: LeafNode, parent?: TreeNode) {
         if (isTreeNode(node)) {
