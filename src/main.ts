@@ -62,22 +62,16 @@ const node3 = TreeNode("black", 15, "3");
 root.left = node3
 const node4 = TreeNode("red", 18, "4");
 node3.right = node4
-const node5 = TreeNode("red", 27, "5");
-node2.right = node5
 const node6 = TreeNode("black", 35, "6");
 node1.right = node6
-// const node7 = TreeNode("black", 20, "7");
-// node2.left = node7
+const node5 = TreeNode("red", 27, "5");
+node6.right = node5
 const node8 = TreeNode("black", 20, "8");
 node4.right = node8
-// const node9 = TreeNode("black", 29, "9");
-// node3.left = node9
 const node10 = TreeNode("black", 29, "10");
 node4.left = node10
 const node11 = TreeNode("red", 29, "11");
 node8.left = node11
-
-let levelCount = 0
 
 {
     interface Context {
@@ -97,7 +91,6 @@ let levelCount = 0
     }
 
     const levels = createLevels(root)
-    levelCount = levels.length
 
     levels.forEach((level, depth) => {
         const height = levels.length - depth - 1;
@@ -178,81 +171,160 @@ for (let i = 0; i < RELAXATION_ITERATIONS; i++) {
 
 const TAU = Math.PI * 2;
 
+const mousePosition = new DOMPoint()
+// TODO: maybe put mouse listeners on the window?
+canvas.addEventListener("mousemove", event => {
+    mousePosition.x = event.offsetX
+    mousePosition.y = event.offsetY
+})
+
+let mouseClicked = false;
+canvas.addEventListener("click", () => {
+    mouseClicked = true;
+})
+
+interface TraverseContext {
+    parent: LeafNode | null
+    depth: number
+    index: number
+}
+function* traverse(node: LeafNode) {
+    const context: TraverseContext = {
+        parent: null,
+        depth: 0,
+        index: 0,
+    }
+    function* traverseInner(node: LeafNode) : Generator<[LeafNode, Readonly<TraverseContext>]> {
+        if (isTreeNode(node)) {
+            yield [node, context]
+            const {parent, depth, index}  = context
+            context.parent = node
+            context.depth = depth + 1
+            context.index = 2*index
+            yield* traverseInner(node.left)
+            context.index = 2*index + 1
+            yield* traverseInner(node.right)
+            context.parent = parent
+            context.depth = depth
+            context.index = index
+        } else {
+            yield [node, context]
+        }
+    }
+    yield* traverseInner(node)
+
+}
+
 function render() {
     assert(ctx != null)
     requestAnimationFrame(render)
-    ctx.resetTransform()
+
     const rootStyles = getComputedStyle(document.documentElement)
     const background = rootStyles.getPropertyValue('--background').trim() || "black"
     const foreground = rootStyles.getPropertyValue('--foreground').trim() || "white"
     const red = rootStyles.getPropertyValue('--red').trim() || "red"
     const nodeRadius = 20
     const leafRadius = 5
+
+    ctx.resetTransform()
     {
         ctx.fillStyle = background
         ctx.fillRect(0, 0, canvas.width, canvas.height)
     }
 
-    const treeHeight = Math.max(0, levelCount - 1) * H
-    ctx.translate(canvas.width / 2, canvas.height / 2 - 0.5 * treeHeight)
-    drawSubtree(ctx, root)
+    { // apply camera transform
+        const treeHeight = (function() {
+            let maxDepth = 0
+            for (const [, context] of traverse(root)) {
+                maxDepth = Math.max(context.depth, maxDepth)
+            }
+            return maxDepth
+        })()
+        ctx.translate(canvas.width / 2, canvas.height / 2 - 0.5 * treeHeight * H)
+    }
+    const cameraTransform = ctx.getTransform().invertSelf()
+    const mouseCamera = cameraTransform.transformPoint(mousePosition);
 
+    let [focusNode, focusParent] = (function() {
+        let minParent: LeafNode | null = null;
+        let minNode: LeafNode | null = null;
+        let minDistance = Infinity;
+        for (const [node, context] of traverse(root)) {
+            const dx = mouseCamera.x - node.position[0]
+            const dy = mouseCamera.y - node.position[1]
+            const distance = Math.sqrt(dx * dx + dy * dy)
+            if (distance < minDistance) {
+                minParent = context.parent;
+                minNode = node;
+                minDistance = distance;
+            }
+        }
+        if (minDistance > nodeRadius) {
+            return [null, null]
+        }
+        return [minNode, minParent]
+    })()
+
+    if (focusNode != null && !isTreeNode(focusNode)) {
+        canvas.style.cursor = "pointer"
+    } else {
+        canvas.style.cursor = "default"
+    }
+
+    if (
+        mouseClicked
+        && focusNode != null && !isTreeNode(focusNode)
+        && focusParent != null && isTreeNode(focusParent)
+    ) {
+        const color = Math.random() < 0.5 ? "red" : "black";
+        const newNode = TreeNode(color, 0)
+        const pos = focusNode.position;
+        vec2.copy(newNode.position, pos);
+        vec2.set(newNode.left.position, pos[0] - 0.5 * H, pos[1] + H);
+        vec2.set(newNode.right.position, pos[0] + 0.5 * H, pos[1] + H);
+        if (focusParent.right == focusNode) {
+            focusParent.right = newNode
+        } else {
+            focusParent.left = newNode
+        }
+    }
+
+    relaxNode(root)
+
+    mouseClicked = false
+
+    drawSubtree(ctx, root)
 
     function drawSubtree(ctx: CanvasRenderingContext2D, node: LeafNode, parent?: TreeNode) {
         if (isTreeNode(node)) {
-            drawTreeNode(ctx, node, parent)
+            drawNode(ctx, node, parent)
             drawSubtree(ctx, node.left, node)
             drawSubtree(ctx, node.right, node)
         } else {
-            drawLeafNode(ctx, node, parent)
+            drawNode(ctx, node, parent)
         }
     }
 
-    function drawLeafNode(ctx: CanvasRenderingContext2D, node: LeafNode, parent?: TreeNode) {
+    function drawNode(ctx: CanvasRenderingContext2D, node: LeafNode, parent?: TreeNode) {
         ctx.save()
 
-        // ctx.translate(node.position[0], node.position[1])
-        const radius = leafRadius
         const pos = node.position
-        ctx.strokeStyle = foreground;
-        ctx.lineWidth = 3
-        ctx.beginPath()
-        ctx.arc(pos[0], pos[1], radius, 0, TAU)
-        ctx.stroke()
-
-        if (parent) {
-            const pos = vec2.create()
-            const a = parent.position
-            const b = node.position
-            const d = vec2.distance(a, b)
-
-            { // draw right leaf
-                vec2.lerp(pos, a, b, nodeRadius / d)
-                ctx.beginPath()
-                ctx.moveTo(pos[0], pos[1])
-                vec2.lerp(pos, a, b, 1 - radius / d)
-                ctx.lineTo(pos[0], pos[1])
-                ctx.stroke()
-            }
-        }
-
-        ctx.restore()
-    }
-
-    function drawTreeNode(ctx: CanvasRenderingContext2D, node: TreeNode, parent?: TreeNode) {
-        ctx.save()
-        const pos = node.position
-        const radius = nodeRadius
-        { // draw root node
-            const color = foreground
-            ctx.strokeStyle = color
+        const radius = isTreeNode(node) ? nodeRadius : leafRadius
+        ctx.strokeStyle = foreground
+        ctx.fillStyle = background
+        if (isTreeNode(node) && node.color == "red") {
             ctx.fillStyle = red
-            ctx.lineWidth = 3
-            ctx.beginPath()
-            ctx.arc(pos[0], pos[1], radius, 0, TAU);
-            if (node.color == "red") ctx.fill()
-            ctx.stroke()
         }
+        ctx.lineWidth = 3
+        if (node == focusNode && !isTreeNode(node)) {
+            ctx.lineWidth = 6
+        }
+        ctx.beginPath()
+        ctx.arc(pos[0], pos[1], radius, 0, TAU);
+        ctx.fill()
+        ctx.stroke()
+        ctx.lineWidth = 3
+
         if (parent) {
             const pos = vec2.create()
             const a = parent.position
@@ -268,7 +340,8 @@ function render() {
                 ctx.stroke()
             }
         }
-        if (node.label) { // draw label
+
+        if (isTreeNode(node) && node.label) { // draw label
             ctx.font = "10px monospace"
             ctx.textAlign = "right"
             ctx.textBaseline = "middle"
@@ -276,6 +349,7 @@ function render() {
             ctx.translate(pos[0], pos[1])
             ctx.fillText(node.label, -nodeRadius - 5, 0)
         }
+
         ctx.restore()
     }
 }
