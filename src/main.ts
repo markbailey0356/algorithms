@@ -32,16 +32,22 @@ const rootNode: TreeNode = {
     color: "black",
 }
 
+const redNode: TreeNode = {
+    left: null,
+    right: null,
+    color: "red",
+}
+
 const TAU = Math.PI * 2;
-const VEC2_RIGHT = Object.freeze(vec2.fromValues(1, 0))
-const VEC2_ZERO = Object.freeze(vec2.create())
 
 function render() {
     assert(ctx != null)
     requestAnimationFrame(render)
+    ctx.resetTransform()
     const rootStyles = getComputedStyle(document.documentElement)
     const background = rootStyles.getPropertyValue('--background').trim() || "black"
     const foreground = rootStyles.getPropertyValue('--foreground').trim() || "white"
+    const red = rootStyles.getPropertyValue('--red').trim() || "red"
     {
         ctx.fillStyle = background
         ctx.fillRect(0, 0, canvas.width, canvas.height)
@@ -51,36 +57,76 @@ function render() {
         Math.round(canvas.width / 2),
         Math.round(canvas.height / 2),
     )
-    { // draw root node
-        const color = foreground
-        const radius = 20
-        const pos = rootPosition
-        ctx.strokeStyle = color
-        ctx.lineWidth = 3
-        ctx.beginPath()
-        ctx.arc(pos[0], pos[1], radius, 0, TAU);
-        ctx.stroke()
-    }
-    { // draw left leaf node
-        const color = foreground
-        const radius = 5
+    const levelHeight = 50
+    ctx.translate(rootPosition[0], rootPosition[1])
+    drawNode(ctx, rootNode)
+    ctx.translate(levelHeight, levelHeight)
+    drawNode(ctx, redNode)
 
-        const linkLength = 50
+    function drawNode(ctx: CanvasRenderingContext2D, node: TreeNode) {
+        const nodeRadius = 20
+        const leafRadius = 5
+        const levelHeight = 50
         const pos = vec2.create()
-        vec2.scaleAndAdd(pos, pos, VEC2_RIGHT, linkLength)
-        vec2.add(pos, pos, rootPosition)
-        vec2.rotate(pos, pos, rootPosition, TAU * 3 / 8);
-        ctx.strokeStyle = color
-        ctx.lineWidth = 3
+        { // draw root node
+            const color = foreground
+            const radius = nodeRadius
+            ctx.strokeStyle = color
+            ctx.fillStyle = red
+            ctx.lineWidth = 3
+            ctx.beginPath()
+            ctx.arc(pos[0], pos[1], radius, 0, TAU);
+            if (node.color == "red") ctx.fill()
+            ctx.stroke()
+        }
+        { // draw leaf nodes
+            const color = foreground
+            const radius = leafRadius
 
-        ctx.beginPath()
-        ctx.arc(pos[0], pos[1], radius, 0, TAU);
-        ctx.stroke()
+            ctx.strokeStyle = color
+            ctx.lineWidth = 3
 
-        vec2.rotate(pos, pos, rootPosition, TAU * -1 / 4);
-        ctx.beginPath()
-        ctx.arc(pos[0], pos[1], radius, 0, TAU);
-        ctx.stroke()
+            const pos = vec2.create()
+
+            { // draw right leaf
+                vec2.set(pos, levelHeight, levelHeight)
+                const distance = vec2.len(pos)
+
+                ctx.beginPath()
+                ctx.arc(pos[0], pos[1], radius, 0, TAU);
+                ctx.stroke()
+
+                vec2.scale(pos, pos, (distance - leafRadius) / distance)
+
+                ctx.beginPath()
+                ctx.moveTo(pos[0], pos[1])
+
+                vec2.scale(pos, pos, nodeRadius / (distance - leafRadius))
+
+                ctx.lineTo(pos[0], pos[1])
+                ctx.stroke()
+            }
+
+            { // draw left leaf
+                vec2.set(pos, -levelHeight, levelHeight)
+                const distance = vec2.len(pos)
+
+                ctx.beginPath()
+                ctx.arc(pos[0], pos[1], radius, 0, TAU);
+                ctx.stroke()
+
+                vec2.scale(pos, pos, (distance - leafRadius) / distance)
+
+                ctx.beginPath()
+                ctx.moveTo(pos[0], pos[1])
+
+                vec2.scale(pos, pos, nodeRadius / (distance - leafRadius))
+
+                ctx.lineTo(pos[0], pos[1])
+                ctx.stroke()
+            }
+
+        }
     }
 }
 
